@@ -1,0 +1,31 @@
+{
+  "name": "Scan2Print — 3D scan editor",
+  "short_name": "Scan2Print",
+  "description": "Edit phone 3D scans (OBJ, GLB, PLY, STL) and export print-ready STL/3MF, fully offline.",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0f1115",
+  "theme_color": "#0f1115",
+  "categories": ["utilities", "productivity"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "share_target": {
+    "action": "./share-target",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "files": [
+        { "name": "file", "accept": [".stl", ".obj", ".glb", ".gltf", ".ply", ".zip", "model/stl", "model/obj", "model/gltf-binary", "model/gltf+json", "application/sla", "application/zip", "application/octet-stream"] }
+      ]
+    }
+  },
+  "file_handlers": [
+    { "action": "./", "accept": { "model/stl": [".stl"], "model/obj": [".obj"], "model/gltf-binary": [".glb"], "application/octet-stream": [".ply"] } }
+  ]
+}

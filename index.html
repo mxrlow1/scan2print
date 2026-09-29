@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+  <title>Scan2Print — edit 3D scans for printing</title>
+  <meta name="description" content="Edit phone 3D scans (OBJ, GLB, PLY, STL) and export print-ready STL/3MF. Runs entirely in your browser.">
+  <meta name="theme-color" content="#0f1115">
+  <meta name="color-scheme" content="dark">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Scan2Print">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="css/app.css">
+  <link rel="modulepreload" href="vendor/three/build/three.core.js">
+  <link rel="modulepreload" href="vendor/three/build/three.module.js">
+</head>
+<body>
+<div id="app">
+  <header id="topbar">
+    <div class="brand"><img src="icons/icon-192.png" alt="" width="28" height="28"><span>Scan2Print</span></div>
+    <div id="filename" class="filename" title="">No model</div>
+    <button class="icon-btn" id="btn-undo" aria-label="Undo" title="Undo" disabled>
+      <svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></button>
+    <button class="icon-btn" id="btn-redo" aria-label="Redo" title="Redo" disabled>
+      <svg viewBox="0 0 24 24"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg></button>
+    <button class="icon-btn" id="btn-help" aria-label="Help" title="Help">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.2a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.4-2.7 4"/><circle cx="12" cy="17.6" r=".6" fill="currentColor"/></svg></button>
+  </header>
+
+  <main id="viewport">
+    <canvas id="canvas"></canvas>
+    <div id="hud">
+      <div id="dims" class="chip hidden"></div>
+      <div id="health" class="chip hidden"></div>
+    </div>
+    <div id="pick-hint" class="banner hidden">Tap the face that should rest on the bed <button class="link" id="pick-cancel">Cancel</button></div>
+    <div id="empty" class="empty">
+      <div class="empty-card">
+        <img src="icons/icon-192.png" alt="" width="64" height="64">
+        <h1>Scan2Print</h1>
+        <p>Open a scan from Scaniverse, Polycam, KIRI… (OBJ, GLB/GLTF, PLY, STL or a .zip) and make it print-ready.</p>
+        <label class="btn primary big" for="file-input">Open 3D file</label>
+        <button class="btn big" id="btn-sample-empty">Try the sample scan</button>
+        <button class="btn ghost" id="btn-help-empty">How do I scan?</button>
+      </div>
+    </div>
+    <div id="drop-hint" class="drop-hint hidden">Drop a 3D file</div>
+  </main>
+
+  <section id="sheet" class="sheet" aria-live="polite">
+    <!-- OPEN -->
+    <div class="panel" data-panel="open">
+      <label class="btn primary big" for="file-input">Open 3D file…</label>
+      <button class="btn big" id="btn-sample">Load sample scan</button>
+      <div class="group">
+        <div class="label">Units of the file</div>
+        <div class="seg" id="seg-units">
+          <button data-v="auto" class="on">Auto</button><button data-v="mm">mm</button><button data-v="cm">cm</button><button data-v="m">m</button><button data-v="in">inch</button>
+        </div>
+        <p class="note" id="units-note">Auto: GLB/GLTF are metres; tiny models (&lt; 3 units) are treated as metres; everything else as mm. Changing this re-scales the current model.</p>
+      </div>
+      <div class="group">
+        <label class="check"><input type="checkbox" id="chk-autodrop" checked> Auto-center and drop onto the build plate</label>
+      </div>
+      <p class="note">Formats: OBJ, GLB, GLTF (+.bin, select all files), PLY (mesh), STL, or a .zip containing one of those. Textures/colours are ignored — printing only needs the shape. Files never leave your phone.</p>
+    </div>
+
+    <!-- SIZE / ROTATE -->
+    <div class="panel" data-panel="size">
+      <div class="group">
+        <div class="label">Size (mm) — type a value, press ✓</div>
+        <div class="dims-edit">
+          <label>X<input type="number" inputmode="decimal" id="in-x" step="0.1"></label>
+          <label>Y<input type="number" inputmode="decimal" id="in-y" step="0.1"></label>
+          <label>Z<input type="number" inputmode="decimal" id="in-z" step="0.1"></label>
+          <button class="btn primary sq" id="btn-size-apply" aria-label="Apply size">✓</button>
+        </div>
+        <label class="check"><input type="checkbox" id="chk-uniform" checked> Keep proportions (uniform scale)</label>
+        <div class="row">
+          <label class="inline">Scale %<input type="number" inputmode="decimal" id="in-scale" value="100" step="1"></label>
+          <button class="btn" id="btn-scale-apply">Apply</button>
+          <button class="btn" data-scale="50">½×</button><button class="btn" data-scale="200">2×</button>
+        </div>
+      </div>
+      <div class="group">
+        <div class="label">Rotate 90°</div>
+        <div class="grid3">
+          <button class="btn" data-rot="x,90">X +90</button><button class="btn" data-rot="y,90">Y +90</button><button class="btn" data-rot="z,90">Z +90</button>
+          <button class="btn" data-rot="x,-90">X −90</button><button class="btn" data-rot="y,-90">Y −90</button><button class="btn" data-rot="z,-90">Z −90</button>
+        </div>
+      </div>
+      <div class="group">
+        <div class="label">Free rotate (preview, then apply)</div>
+        <label class="slider">X <input type="range" id="rng-rx" min="-180" max="180" value="0" step="1"><output id="out-rx">0°</output></label>
+        <label class="slider">Y <input type="range" id="rng-ry" min="-180" max="180" value="0" step="1"><output id="out-ry">0°</output></label>
+        <label class="slider">Z <input type="range" id="rng-rz" min="-180" max="180" value="0" step="1"><output id="out-rz">0°</output></label>
+        <div class="row"><button class="btn primary" id="btn-rot-apply">Apply rotation</button><button class="btn" id="btn-rot-reset">Reset</button></div>
+      </div>
+      <div class="group">
+        <button class="btn big accent" id="btn-layflat">Lay flat: tap a face…</button>
+        <div class="label">Mirror</div>
+        <div class="grid3"><button class="btn" data-mirror="x">Mirror X</button><button class="btn" data-mirror="y">Mirror Y</button><button class="btn" data-mirror="z">Mirror Z</button></div>
+        <button class="btn" id="btn-drop">Center &amp; drop on plate</button>
+      </div>
+    </div>
+
+    <!-- CUT -->
+    <div class="panel" data-panel="cut">
+      <div class="group">
+        <div class="label">Plane</div>
+        <div class="seg" id="seg-cut-axis"><button data-v="z" class="on">Horizontal</button><button data-v="y">Front</button><button data-v="x">Side</button></div>
+        <label class="slider">Position <input type="range" id="rng-cut-pos" min="0" max="1000" value="500" step="1"><output id="out-cut-pos">–</output></label>
+        <div class="row nudge"><button class="btn" data-nudge="-1">−1 mm</button><button class="btn" data-nudge="-0.1">−0.1</button><button class="btn" data-nudge="0.1">+0.1</button><button class="btn" data-nudge="1">+1 mm</button></div>
+        <label class="slider">Tilt A <input type="range" id="rng-cut-ta" min="-90" max="90" value="0" step="1"><output id="out-cut-ta">0°</output></label>
+        <label class="slider">Tilt B <input type="range" id="rng-cut-tb" min="-90" max="90" value="0" step="1"><output id="out-cut-tb">0°</output></label>
+        <button class="btn" id="btn-cut-flip">⇅ Flip kept side <span id="cut-keep-label" class="muted"></span></button>
+        <label class="check"><input type="checkbox" id="chk-cap" checked> Cap the cut (keep the mesh closed)</label>
+        <button class="btn primary big" id="btn-cut">Cut</button>
+      </div>
+      <div class="group">
+        <div class="label">Flatten bottom</div>
+        <div class="row">
+          <label class="inline">Slice off<input type="number" inputmode="decimal" id="in-flatten" value="1" step="0.1" min="0.05"> mm</label>
+          <button class="btn primary" id="btn-flatten">Flatten</button>
+        </div>
+        <p class="note">Removes a thin slice from the lowest point and caps it — gives a flat, sticky first layer.</p>
+      </div>
+    </div>
+
+    <!-- REPAIR -->
+    <div class="panel" data-panel="repair">
+      <div id="health-detail" class="health-detail"></div>
+      <div class="group">
+        <div class="label">Remove floating pieces</div>
+        <div class="seg" id="seg-pieces"><button data-v="largest" class="on">Keep largest only</button><button data-v="threshold">Remove small</button></div>
+        <label class="slider" id="row-pieces-pct">Smaller than <input type="range" id="rng-pieces" min="1" max="50" value="5"><output id="out-pieces">5%</output></label>
+        <button class="btn primary" id="btn-pieces">Remove pieces</button>
+      </div>
+      <div class="group">
+        <div class="label">Fill holes</div>
+        <label class="slider">Max hole size <input type="range" id="rng-holes" min="0" max="100" value="100"><output id="out-holes">All</output></label>
+        <button class="btn primary" id="btn-holes">Fill holes</button>
+      </div>
+      <div class="group">
+        <div class="label">Clean up</div>
+        <button class="btn" id="btn-repair">Fix non-manifold edges &amp; duplicate faces</button>
+      </div>
+      <div class="group">
+        <div class="label">Smooth (Laplacian / Taubin)</div>
+        <label class="slider">Passes <input type="range" id="rng-smooth-it" min="1" max="30" value="5"><output id="out-smooth-it">5</output></label>
+        <label class="slider">Strength <input type="range" id="rng-smooth-l" min="10" max="80" value="50"><output id="out-smooth-l">0.50</output></label>
+        <label class="check"><input type="checkbox" id="chk-smooth-border" checked> Keep open edges fixed</label>
+        <button class="btn primary" id="btn-smooth">Smooth</button>
+      </div>
+      <div class="group">
+        <div class="label">Simplify (decimate)</div>
+        <label class="slider">Keep <input type="range" id="rng-simplify" min="2" max="95" value="50"><output id="out-simplify">50%</output></label>
+        <div class="note" id="simplify-note"></div>
+        <button class="btn primary" id="btn-simplify">Simplify</button>
+      </div>
+    </div>
+
+    <!-- EXPORT -->
+    <div class="panel" data-panel="export">
+      <div class="group">
+        <div class="label">Format</div>
+        <div class="seg" id="seg-format"><button data-v="stl" class="on">STL</button><button data-v="3mf">3MF</button><button data-v="obj">OBJ</button></div>
+        <label class="inline wide">File name<input type="text" id="in-filename" value="scan" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+        <button class="btn primary big" id="btn-export">Create file</button>
+        <div id="export-ready" class="export-ready hidden">
+          <div id="export-info" class="note"></div>
+          <button class="btn primary big" id="btn-share">Share / Save to Files</button>
+          <button class="btn big" id="btn-download">Download</button>
+        </div>
+        <p class="note">STL and 3MF are written in millimetres, Z-up, ready for any slicer (Bambu Studio, PrusaSlicer, Cura, Orca). On iPhone use “Share / Save to Files” then pick “Save to Files” or your slicer app.</p>
+      </div>
+    </div>
+
+    <!-- VIEW -->
+    <div class="panel" data-panel="view">
+      <label class="check big"><input type="checkbox" id="chk-wire"> Wireframe</label>
+      <label class="check big"><input type="checkbox" id="chk-bbox" checked> Bounding box</label>
+      <label class="check big"><input type="checkbox" id="chk-grid" checked> Build plate grid</label>
+      <div class="group">
+        <div class="label">Build plate</div>
+        <div class="seg" id="seg-plate"><button data-v="180">180</button><button data-v="220">220</button><button data-v="256" class="on">256</button><button data-v="350">350</button></div>
+      </div>
+      <div class="row"><button class="btn" id="btn-view-reset">Reset view</button><button class="btn" id="btn-view-top">Top</button><button class="btn" id="btn-view-front">Front</button></div>
+      <p class="note">One finger: orbit · Two fingers: pinch to zoom, drag to pan · Double-tap: reset view. Red-tinted surfaces are the inside of the mesh (holes or flipped faces).</p>
+      <p class="note" id="version-note"></p>
+    </div>
+  </section>
+
+  <nav id="tabbar">
+    <button data-tab="open"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>Open</span></button>
+    <button data-tab="size"><svg viewBox="0 0 24 24"><path d="M4 20 20 4"/><path d="M14 4h6v6"/><path d="M10 20H4v-6"/></svg><span>Size</span></button>
+    <button data-tab="cut"><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.1 15.9M14.5 14.5 20 20M8.1 8.1 12 12"/></svg><span>Cut</span></button>
+    <button data-tab="repair"><svg viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.2L3 17.8V21h3.2l6.3-6.3a4 4 0 0 0 5.2-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/></svg><span>Repair</span></button>
+    <button data-tab="export"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg><span>Export</span></button>
+    <button data-tab="view"><svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><span>View</span></button>
+  </nav>
+</div>
+
+<input type="file" id="file-input" multiple hidden>
+
+<div id="busy" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="busy-label">
+  <div class="busy-card">
+    <div id="busy-label">Working…</div>
+    <div class="progress"><div id="busy-bar"></div></div>
+    <button class="btn" id="busy-cancel">Cancel</button>
+  </div>
+</div>
+
+<div id="toast" class="toast hidden" role="status"></div>
+
+<dialog id="help">
+  <div class="help-inner">
+    <div class="help-head"><h2>Scan → print guide</h2><button class="icon-btn" id="help-close" aria-label="Close help"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+    <h3>iPhone 16 Pro Max (LiDAR)</h3>
+    <p><b>Scaniverse</b> (free): tap <b>+</b> → <b>Mesh</b> (not Splat) → choose <b>Small/Medium object</b> → walk slowly around the object in 2–3 rings (low, middle, top-down) → Done → process with <b>Detail</b>. Then <b>Share</b> → <b>Export model</b> → pick <b>OBJ</b>, <b>STL</b>, <b>GLB</b> or <b>PLY</b> → <b>Save to Files</b>.</p>
+    <p><b>Polycam</b>: use <b>LiDAR</b> mode for bigger things (furniture, rooms, parts &gt; ~15 cm) or <b>Photo</b> mode for small detailed objects (upload 20–200 photos). Export → choose <b>GLB</b>/<b>OBJ</b>/<b>STL</b> (some formats need a paid plan — GLB is usually available) → Save to Files.</p>
+    <p><b>KIRI Engine</b>: Photo Scan or Featureless Object mode works well for small matte items; export OBJ/STL/GLB.</p>
+    <p>Then in Scan2Print tap <b>Open 3D file</b> and pick the file in Files (a .zip from the app is fine too).</p>
+    <h3>Samsung Galaxy S26 Ultra (photo-based)</h3>
+    <ul>
+      <li>No LiDAR, so use photogrammetry apps: <b>KIRI Engine</b>, <b>Polycam</b> (Photo mode), <b>Scaniverse</b> or <b>RealityScan</b>.</li>
+      <li>Use soft, even light (overcast daylight / no harsh shadows). Avoid shiny, transparent and plain black or white surfaces — a light dusting of scanning spray or dry shampoo helps.</li>
+      <li>Put the object on a textured surface (newspaper) and <b>move the phone, not the object</b>. Take 40–100+ sharp photos with 60–80 % overlap in 3 rings at different heights.</li>
+      <li>Lock focus/exposure if the app allows it and fill the frame with the object.</li>
+      <li>Export OBJ/GLB/STL, then open it here (installed as an app, you can also Share the file straight to Scan2Print).</li>
+    </ul>
+    <h3>Typical fix-up order</h3>
+    <ol>
+      <li><b>Open</b> → check the size (units). Scan apps export metres; Scan2Print converts to mm.</li>
+      <li><b>Cut</b> away the floor/table, or use <b>Flatten bottom</b>.</li>
+      <li><b>Repair</b> → Remove floating pieces → Fill holes → (optional) Smooth → Simplify big scans to ~100–300k triangles.</li>
+      <li><b>Size</b> → set the exact height/width you want, <b>Lay flat</b> on its best face.</li>
+      <li><b>Export</b> STL (or 3MF) and open it in your slicer. Aim for “Watertight ✓”.</li>
+    </ol>
+    <h3>Install as an app</h3>
+    <p>iPhone Safari: Share → <b>Add to Home Screen</b>. Android Chrome: ⋮ → <b>Install app</b>. Works offline after the first visit.</p>
+    <p class="note">Everything runs on your device — no uploads. Undo/redo keeps the last ~20 steps.</p>
+  </div>
+</dialog>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
