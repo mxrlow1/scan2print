@@ -1,5 +1,5 @@
 // Scan2Print service worker: offline app shell + Web Share Target (Android installed PWA).
-const VERSION = 'scan2print-v1.1.0';
+const VERSION = 'scan2print-v1.1.1';
 const CORE = [
   './', 'index.html', 'manifest.webmanifest', 'css/app.css',
   'js/app.js', 'js/meshops.js', 'js/worker.js', 'js/worker-client.js', 'js/exporters.js', 'js/sample.js',
@@ -15,7 +15,8 @@ const CORE = [
 ];
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(VERSION).then((c) => c.addAll(CORE)).then(() => self.skipWaiting()));
+  // cache: 'reload' bypasses the HTTP cache (GitHub Pages sends max-age=600), so a new version never stores stale files
+  e.waitUntil(caches.open(VERSION).then((c) => c.addAll(CORE.map((u) => new Request(u, { cache: 'reload' })))).then(() => self.skipWaiting()));
 });
 self.addEventListener('activate', (e) => {
   e.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== VERSION && k !== 'scan2print-share').map((k) => caches.delete(k))))

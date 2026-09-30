@@ -13,5 +13,6 @@ python3 tests/make_fixtures.py
 python3 tests/e2e.py chromium
 python3 tests/e2e.py webkit
 python3 tests/pwa.py
+python3 tests/sw_upgrade.py
 python3 tests/scan_e2e.py
 python3 tests/screenshots.py

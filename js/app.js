@@ -6,7 +6,7 @@ import { WorkerClient } from './worker-client.js';
 import { makeSampleScan } from './sample.js';
 import { initScan } from './scan.js';
 
-export const APP_VERSION = '1.1.0';
+export const APP_VERSION = '1.1.1';
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
 const DEG = Math.PI / 180;

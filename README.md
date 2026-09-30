@@ -54,7 +54,7 @@ ios/                 native LiDAR scanner app (Swift Playgrounds package + TestF
 python3 -m http.server 8931          # then open http://localhost:8931/
 # append ?nosw to bypass the service worker while developing
 pip install playwright numpy && python3 -m playwright install chromium webkit
-tests/run_all.sh                     # unit + e2e (chromium, webkit) + PWA + scan e2e + screenshots
+tests/run_all.sh                     # unit + e2e (chromium, webkit) + PWA + SW upgrade + scan e2e + screenshots
 ```
 
 Live depth scanning can only be exercised for real on an ARCore phone with the Depth API (e.g. recent Pixel / Galaxy S
