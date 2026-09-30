@@ -3,7 +3,7 @@
 Mobile-first, installable PWA for cleaning up phone 3D scans (Scaniverse, Polycam, KIRI, RealityScan…) and exporting print-ready files.
 Static files only, no build step, runs 100 % on-device (nothing is uploaded). Works offline once it has loaded.
 
-**Live (after publishing):** https://mxrlow1.github.io/scan2print/
+**Live:** https://mxrlow1.github.io/scan2print/
 
 ## Features
 - **Import:** OBJ, GLB, GLTF (+ .bin, pick all the files), PLY (mesh), STL, or a `.zip` holding one of these. Also drag & drop, the Android "Share to" target (installed PWA), and a built-in sample scan.
@@ -14,6 +14,19 @@ Static files only, no build step, runs 100 % on-device (nothing is uploaded). Wo
 - **Repair:** remove floating pieces (keep the largest, or drop pieces under X % of it), fill holes (triangulated boundary loops, with a size limit and pinched-loop handling), fix non-manifold edges and duplicate faces, Taubin/Laplacian smoothing (open edges can stay fixed), and simplify/decimate with meshoptimizer (WASM). The mesh health panel shows pieces, holes, open and non-manifold edges, volume and whether the mesh is watertight.
 - **Export:** binary **STL** (mm, Z-up), **3MF** (mm, Z-up, zipped) and **OBJ**. Where the browser can share files (iOS Safari) you get **Share / Save to Files** through the Web Share API, and a normal download always works as a fallback.
 - **Performance:** parsing, welding and every heavy operation run in a module Web Worker with a progress bar and Cancel button. Scans of about 500k triangles work (see the test numbers below).
+
+## Native iPad/iPhone LiDAR scanner (optional)
+
+[`ios/`](ios/) contains **Scan2Print Scanner**, a native LiDAR scanning app that crops the object, removes the floor and
+saves STL/OBJ/PLY for this editor. No Mac is required:
+
+1. **Swift Playgrounds (free):** download this repo's ZIP on your iPad, unzip it in Files, open
+   `ios/Scan2PrintScanner.swiftpm` in Swift Playgrounds and tap Run. LiDAR scanning needs an iPad Pro (2020+).
+2. **TestFlight via GitHub Actions ($99 Apple Developer account):** add four App Store Connect API key secrets and run the
+   *iOS app* workflow. It signs the app on a macOS runner and uploads it to TestFlight. Without secrets it only does an
+   unsigned build check.
+
+Step-by-step instructions are in [`ios/README.md`](ios/README.md).
 
 ## Layout
 ```
