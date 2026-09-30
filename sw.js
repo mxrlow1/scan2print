@@ -1,8 +1,9 @@
 // Scan2Print service worker: offline app shell + Web Share Target (Android installed PWA).
-const VERSION = 'scan2print-v1.0.0';
+const VERSION = 'scan2print-v1.1.0';
 const CORE = [
   './', 'index.html', 'manifest.webmanifest', 'css/app.css',
   'js/app.js', 'js/meshops.js', 'js/worker.js', 'js/worker-client.js', 'js/exporters.js', 'js/sample.js',
+  'js/scan.js', 'js/fusion.js', 'js/fusion-worker.js', 'js/mc-tables.js', 'js/scan-sim.js',
   'vendor/three/build/three.module.js', 'vendor/three/build/three.core.js',
   'vendor/three/addons/controls/OrbitControls.js',
   'vendor/three/addons/loaders/STLLoader.js', 'vendor/three/addons/loaders/PLYLoader.js', 'vendor/three/addons/loaders/OBJLoader.js',

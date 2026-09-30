@@ -4,8 +4,9 @@ import { OrbitControls } from '../vendor/three/addons/controls/OrbitControls.js'
 import * as ops from './meshops.js';
 import { WorkerClient } from './worker-client.js';
 import { makeSampleScan } from './sample.js';
+import { initScan } from './scan.js';
 
-export const APP_VERSION = '1.0.0';
+export const APP_VERSION = '1.1.0';
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
 const DEG = Math.PI / 180;
@@ -327,11 +328,11 @@ async function openFiles(fileList) {
   }
 }
 
-function importMesh(mesh, stats, name, ext) {
+function importMesh(mesh, stats, name, ext) { // ext 'scan' = live depth scan, always metres
   const bb = ops.computeBBox(mesh.positions);
   const maxDim = Math.max(bb.max[0] - bb.min[0], bb.max[1] - bb.min[1], bb.max[2] - bb.min[2]);
-  state.detectedUnit = ext === 'glb' || ext === 'gltf' || maxDim < 3 ? 'm' : 'mm';
-  state.unit = state.unitPref === 'auto' ? state.detectedUnit : state.unitPref;
+  state.detectedUnit = ext === 'scan' || ext === 'glb' || ext === 'gltf' || maxDim < 3 ? 'm' : 'mm';
+  state.unit = ext === 'scan' ? 'm' : state.unitPref === 'auto' ? state.detectedUnit : state.unitPref;
   const k = UNIT_MM[state.unit];
   if (k !== 1) mesh = ops.transformMesh(mesh, new THREE.Matrix4().makeScale(k, k, k).elements);
   state.name = name; state.ext = ext;
@@ -423,6 +424,29 @@ async function loadSample() {
     importMesh(res.mesh, res.stats, 'sample-scan.obj', 'obj');
   } catch (e) { console.error(e); }
 }
+
+// ---------------------------------------------------------------- live depth scan (js/scan.js)
+async function importScan(mesh, { cleanup, info }) {
+  try {
+    const res = await runOp('weld', mesh, 'Preparing scan…');
+    const d = new Date(), pad = (n) => String(n).padStart(2, '0');
+    importMesh(res.mesh, res.stats, `depth-scan-${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}.obj`, 'scan');
+    const steps = [];
+    if (cleanup) {
+      const r1 = await runOp('removeSmall', { mesh: state.mesh, mode: 'largest', percent: 5 }, 'Removing floating bits…');
+      if (r1.info.removedShells) { commit(r1.mesh, 'Remove pieces', r1.stats, { drop: true }); steps.push(`removed ${r1.info.removedShells} loose piece${r1.info.removedShells > 1 ? 's' : ''}`); }
+      if (state.stats.holes) {
+        const r2 = await runOp('fillHoles', { mesh: state.mesh, maxEdges: 0 }, 'Filling holes…');
+        if (r2.info.filled) { commit(r2.mesh, 'Fill holes', r2.stats, { drop: true }); steps.push(`filled ${r2.info.filled} hole${r2.info.filled > 1 ? 's' : ''}`); }
+      }
+    }
+    const dm = printDims();
+    toast(`${info.simulated ? 'Simulated scan' : 'Scan'}: ${info.frames} frames → ${fmtInt(state.stats.tris)} ▲, ${dm.x.toFixed(0)}×${dm.y.toFixed(0)}×${dm.z.toFixed(0)} mm` +
+      (steps.length ? ' · ' + steps.join(', ') : '') + (state.stats.watertight ? ' · watertight ✓' : ''), false, 6000);
+    state.lastScan = { ...info, steps };
+  } catch (e) { console.error(e); }
+}
+const scan = initScan({ onResult: importScan, toast });
 
 // drag & drop (desktop/tablet)
 window.addEventListener('dragover', (e) => { e.preventDefault(); $('#drop-hint').classList.remove('hidden'); });
@@ -801,4 +825,4 @@ if (window.matchMedia('(min-width: 900px)').matches) openTab('open');
 fitView();
 
 // test / debugging hook
-window.S2P = { state, openFiles, loadSample, commit, undo, redo, fitView, ops, openTab, pickAt, layFlatAt, worker, THREE, camera, controls, modelMesh, requestRender };
+window.S2P = { scan, state, openFiles, loadSample, commit, undo, redo, fitView, ops, openTab, pickAt, layFlatAt, worker, THREE, camera, controls, modelMesh, requestRender };

@@ -43,6 +43,7 @@
         <img src="icons/icon-192.png" alt="" width="64" height="64">
         <h1>Scan2Print</h1>
         <p>Open a scan from Scaniverse, Polycam, KIRI… (OBJ, GLB/GLTF, PLY, STL or a .zip) and make it print-ready.</p>
+        <button class="btn scan-btn" id="btn-scan-empty"><svg viewBox="0 0 24 24"><path d="M3 8V5a2 2 0 0 1 2-2h3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M8 21H5a2 2 0 0 1-2-2v-3"/><path d="m12 7 4.5 2.5v5L12 17l-4.5-2.5v-5z"/><path d="M12 12v5M12 12l4.5-2.5M12 12 7.5 9.5"/></svg><span><b>Scan</b><small class="scan-sub">3D-scan an object with your phone</small></span></button>
         <label class="btn primary big" for="file-input">Open 3D file</label>
         <button class="btn big" id="btn-sample-empty">Try the sample scan</button>
         <button class="btn ghost" id="btn-help-empty">How do I scan?</button>
@@ -54,6 +55,7 @@
   <section id="sheet" class="sheet" aria-live="polite">
     <!-- OPEN -->
     <div class="panel" data-panel="open">
+      <button class="btn scan-btn" id="btn-scan"><svg viewBox="0 0 24 24"><path d="M3 8V5a2 2 0 0 1 2-2h3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M8 21H5a2 2 0 0 1-2-2v-3"/><path d="m12 7 4.5 2.5v5L12 17l-4.5-2.5v-5z"/><path d="M12 12v5M12 12l4.5-2.5M12 12 7.5 9.5"/></svg><span><b>Scan</b><small class="scan-sub">3D-scan an object with your phone</small></span></button>
       <label class="btn primary big" for="file-input">Open 3D file…</label>
       <button class="btn big" id="btn-sample">Load sample scan</button>
       <div class="group">
@@ -244,6 +246,65 @@
     <h3>Install as an app</h3>
     <p>iPhone Safari: Share → <b>Add to Home Screen</b>. Android Chrome: ⋮ → <b>Install app</b>. Works offline after the first visit.</p>
     <p class="note">Everything runs on your device — no uploads. Undo/redo keeps the last ~20 steps.</p>
+  </div>
+</dialog>
+
+<!-- live depth scan UI (WebXR DOM overlay) -->
+<div id="xr-overlay" class="xr-overlay hidden">
+  <div class="xr-top">
+    <button class="icon-btn xr-close" id="xr-close" aria-label="Stop scanning"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    <div class="xr-status"><b id="xr-title">Starting AR…</b><span id="xr-sub"></span></div>
+  </div>
+  <div class="xr-bottom">
+    <div id="xr-place" class="xr-panel hidden">
+      <div class="label">Scan box size</div>
+      <div class="seg" id="seg-xr-size"><button data-v="0.25">25 cm</button><button data-v="0.5" class="on">50 cm</button><button data-v="1">1 m</button></div>
+      <button class="btn primary big" id="xr-place-btn" disabled>Place box here</button>
+    </div>
+    <div id="xr-scan" class="xr-panel hidden">
+      <div class="xr-meter"><div id="xr-cover"></div></div>
+      <div class="note" id="xr-cover-label"></div>
+      <div class="grid3"><button class="btn" id="xr-pause">Pause</button><button class="btn" id="xr-move">Move box</button><button class="btn" id="xr-reset">Reset</button></div>
+      <label class="check"><input type="checkbox" id="chk-xr-clean" checked> Auto clean-up (keep largest piece, fill holes)</label>
+      <button class="btn primary big" id="xr-finish" disabled>Finish &amp; edit</button>
+    </div>
+  </div>
+</div>
+
+<!-- hand-off when live scanning is not available (iPhone, desktop, Android without depth) -->
+<dialog id="scan-help">
+  <div class="help-inner">
+    <div class="help-head"><h2>Scan an object</h2><button class="icon-btn" id="scan-help-close" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+    <p id="scan-reason" class="callout hidden"></p>
+    <section id="scan-ios">
+      <h3>iPhone / iPad</h3>
+      <p>Scan with a free scanner app, export the model, then open it here. Pro models with LiDAR give the best results for bigger objects; photo mode works on any iPhone.</p>
+      <div class="app-links">
+        <a class="btn big" id="lnk-scaniverse-ios" href="https://apps.apple.com/us/app/scaniverse-3d-scanner/id1541433223" target="_blank" rel="noopener">Scaniverse · App Store</a>
+        <a class="btn big" id="lnk-polycam-ios" href="https://apps.apple.com/us/app/polycam-3d-scanner-measuring/id1532482376" target="_blank" rel="noopener">Polycam · App Store</a>
+      </div>
+      <ol>
+        <li><b>Scaniverse:</b> tap <b>+</b> → <b>Mesh</b> (not Splat) → <b>Small</b> or <b>Medium object</b>. Walk slowly around it in 2–3 rings (low, middle, top-down) → <b>Done</b> → process with <b>Detail</b>.</li>
+        <li><b>Export:</b> <b>Share</b> → <b>Export model</b> → <b>OBJ</b>, <b>STL</b>, <b>GLB</b> or <b>PLY</b> → <b>Save to Files</b>.</li>
+        <li><b>Polycam:</b> <b>LiDAR</b> mode for bigger objects or <b>Photo</b> mode for small detailed ones → process → <b>Export</b> (GLB is available on the free plan; some formats need Pro) → <b>Save to Files</b>.</li>
+        <li>Back here: <b>Open 3D file</b> → pick the file in Files. A .zip export works too.</li>
+      </ol>
+      <p class="note">Native option: <a id="lnk-native" href="https://github.com/mxrlow1/scan2print/blob/main/ios/README.md" target="_blank" rel="noopener"><b>Scan2Print Scanner</b></a>, our own LiDAR app for iPad Pro / iPhone Pro. It crops the object, removes the table and saves STL for this editor. Install it free with Swift Playgrounds on an iPad, or through TestFlight.</p>
+    </section>
+    <section id="scan-android">
+      <h3>Android</h3>
+      <p>Live scanning right in Scan2Print needs <b>Chrome</b> on a phone with ARCore <b>Depth API</b> support and “Google Play Services for AR”. Otherwise, use a scanner app:</p>
+      <div class="app-links">
+        <a class="btn big" id="lnk-scaniverse-android" href="https://play.google.com/store/apps/details?id=com.nianticlabs.scaniverse" target="_blank" rel="noopener">Scaniverse · Google Play</a>
+        <a class="btn big" id="lnk-polycam-android" href="https://play.google.com/store/apps/details?id=ai.polycam" target="_blank" rel="noopener">Polycam · Google Play</a>
+      </div>
+      <ol>
+        <li>Use soft, even light and a textured surface under the object. Move the phone, not the object, and take many overlapping views in 3 rings.</li>
+        <li>Export <b>OBJ</b>, <b>GLB</b>, <b>STL</b> or <b>PLY</b> (mesh) → save to Downloads, or <b>Share</b> it straight to Scan2Print if you installed it as an app.</li>
+        <li>Back here: <b>Open 3D file</b> and pick it.</li>
+      </ol>
+    </section>
+    <label class="btn primary big" id="scan-help-open" for="file-input">Open an exported file</label>
   </div>
 </dialog>
 

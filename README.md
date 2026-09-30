@@ -6,6 +6,10 @@ Static files only, no build step, runs 100 % on-device (nothing is uploaded). Wo
 **Live:** https://mxrlow1.github.io/scan2print/
 
 ## Features
+- **Scan (new in 1.1):** a big **Scan** button on the start screen.
+  - **Android (Chrome + ARCore Depth API):** a live scan runs right in the browser through WebXR `depth-sensing` (CPU depth), `hit-test` and `dom-overlay`. Aim at the table in front of the object and place a 25 cm, 50 cm or 1 m scan box. Then walk around the object: depth frames are fused into a 128³ TSDF volume in a Web Worker, and a live marching-cubes preview mesh shows up in AR along with a coverage meter. **Finish & edit** builds the full-resolution mesh (metres to mm, dropped on the plate). By default it also keeps the largest piece and fills holes, so the result is usually watertight straight away. Every step can be undone.
+  - **Graceful fallback:** iPhone/iPad (Safari has no WebXR), desktop, and Android phones without WebXR AR or depth get a hand-off sheet instead. It explains why live scanning isn't available, links to Scaniverse and Polycam (App Store / Google Play), gives export → import steps, and points to the native [Scan2Print Scanner](ios/README.md) LiDAR app.
+  - `?scansim=1` runs the same pipeline against a synthetic depth camera, for demos and tests.
 - **Import:** OBJ, GLB, GLTF (+ .bin, pick all the files), PLY (mesh), STL, or a `.zip` holding one of these. Also drag & drop, the Android "Share to" target (installed PWA), and a built-in sample scan.
   Units are auto-detected (GLB/GLTF and tiny models are read as metres, everything else as mm) and you can change them. Textures are dropped on purpose because printing only needs geometry, and that saves a lot of memory on phones.
 - **Viewer:** one finger orbits, a pinch zooms, two fingers pan, a double-tap resets the view. Shows the build-plate grid (180/220/256/350 mm), the bounding box and a live size readout in mm. There is a wireframe toggle, and faces seen from the inside are tinted red so holes and flipped faces stand out. Models are auto-centred and dropped onto the plate.
@@ -36,8 +40,13 @@ js/worker.js         parse + heavy ops (runs in a module worker)
 js/meshops.js        pure mesh algorithms (weld, cut+cap, fill, smooth, pieces, analysis…)
 js/exporters.js      STL / OBJ / 3MF writers
 js/sample.js         procedural "phone scan" sample
+js/scan.js           Scan button, WebXR depth session, AR overlay UI, hand-off sheet, simulator
+js/fusion.js         TSDF depth fusion + marching cubes (pure JS)   js/mc-tables.js  MC lookup tables
+js/fusion-worker.js  fusion worker              js/scan-sim.js  synthetic ARCore-like depth camera
 vendor/three/        three.js r186 (0.186.1) build + needed addons, re-vendor with tools/vendor.sh
-tests/               node unit tests, Playwright e2e (Chromium + WebKit), PWA test, screenshot script
+tests/               node unit tests (meshops, fusion), Playwright e2e (Chromium + WebKit), scan e2e with a
+                     mocked WebXR ARCore session (tests/xr_mock.js), PWA test, screenshot script
+ios/                 native LiDAR scanner app (Swift Playgrounds package + TestFlight CI), see ios/README.md
 ```
 
 ## Develop / test
@@ -45,6 +54,12 @@ tests/               node unit tests, Playwright e2e (Chromium + WebKit), PWA te
 python3 -m http.server 8931          # then open http://localhost:8931/
 # append ?nosw to bypass the service worker while developing
 pip install playwright numpy && python3 -m playwright install chromium webkit
-tests/run_all.sh                     # unit + e2e (chromium, webkit) + PWA + screenshots
+tests/run_all.sh                     # unit + e2e (chromium, webkit) + PWA + scan e2e + screenshots
+```
+
+Live depth scanning can only be exercised for real on an ARCore phone with the Depth API (e.g. recent Pixel / Galaxy S
+models) in Chrome over HTTPS, so use the GitHub Pages URL. Locally, `?scansim=1` and `tests/scan_e2e.py` cover the rest of the pipeline.
+```text
+screenshots/04–12    Scan UI: button, place box, live fusion, result, Android/iPhone hand-off, simulator
 ```
 When you change any cached file, bump `VERSION` in `sw.js` so installed copies update.
