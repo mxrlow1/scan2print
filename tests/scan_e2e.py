@@ -59,7 +59,9 @@ async def run_scan(pg, label, errs, min_frames=60, shots=None):
     await pg.evaluate("document.querySelector('#xr-canvas')?.classList.remove('hidden')")
     if shots: await pg.wait_for_timeout(300); await shot(pg, shots[0])
     await pg.tap('#xr-place-btn')
-    await pg.wait_for_function(f"S2P.scan.stats.frames >= {min_frames} && S2P.scan.stats.tris > 0", timeout=120000, polling=500)
+    try:  # wait for enough frames AND views from around the object (frame pacing varies with machine load)
+        await pg.wait_for_function(f"S2P.scan.stats.frames >= {min_frames} && S2P.scan.stats.tris > 500 && S2P.scan.stats.coverage >= 0.6", timeout=120000, polling=500)
+    except Exception: pass
     st = await pg.evaluate('S2P.scan.stats')
     check(f'{label}: live fusion + preview mesh', st['tris'] > 500 and st['coverage'] >= 0.6, f"{st['frames']} frames, {st['tris']} preview tris, coverage {st['coverage']:.2f}, fuse {st['fuseMs']:.0f} ms")
     if shots: await shot(pg, shots[1])
